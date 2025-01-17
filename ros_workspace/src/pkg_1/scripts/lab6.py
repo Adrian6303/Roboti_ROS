@@ -72,7 +72,7 @@ def img_process(img):
             if max_contour is not None:
                # print(max_contour)
                contour_center = (x+w //2,y+h //2)
-            surface = x * y
+            surface = w * h
                 # calculate the center of the contour and estimate the size of the contour               
                 # draw the bounding circle or box around the contour
         cv2.imshow("Frame", cv2_img)
@@ -90,29 +90,40 @@ def move():
     global pose_pub, vel_pub
     global contour_center, radius
     global max_contour
-    global lock, shut
+    global lock, shut, surface
+    MAX_BLOB_SIZE =40000
+
     while True:
         time.sleep(0.2)
         with lock:
+            print(surface)
             if shut:
                 break
             if max_contour is not None:
-                # if there is a contour, decide how to move and change pitch
-                vel_msg.x = 10
-                vel_pub.publish(vel_msg)
+                if surface > MAX_BLOB_SIZE:
+                        vel_msg.x= 0
+                        vel_pub.publish(vel_msg)
+                        if contour_center[1] > 320:
+                              pose_msg.pitch = math.radians(-10)
+                              pose_pub.publish(pose_msg)
+                        elif contour_center[1] < 160:
+                              pose_msg.pitch = math.radians(10)
+                              pose_pub.publish(pose_msg)
 
-            elif surface < 10:
+                else:
+                        vel_msg.x = 10
+                        vel_pub.publish(vel_msg)
+
+            else:
+                pose_msg.pitch = math.radians(0)
+                pose_pub.publish(pose_msg)
                 vel_msg.x = 0
                 vel_pub.publish(vel_msg)
-            elif surface > 100:
-                vel_msg.x = 0
-                vel_pub.publish(vel_msg)
-                # if no contour is detected, do something else
 
 if __name__ == "__main__":
     rospy.init_node(ROS_NODE_NAME, log_level=rospy.INFO)
     rospy.on_shutdown(cleanup)
-    
+
     pose_pub = rospy.Publisher("/puppy_control/pose", Pose, queue_size=1)
     gait_pub = rospy.Publisher("/puppy_control/gait", Gait, queue_size=1)
     vel_pub = rospy.Publisher("/puppy_control/velocity", Velocity, queue_size=1)
